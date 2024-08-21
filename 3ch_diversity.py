@@ -31,12 +31,12 @@ def mk_dir(directory):
         else:
             print(f"[WARNING] {directory} already exists but is empty.")
 
-def show_images_horizontally(images, main_title=None, titles=['CT', 'MR', 'CT Label'], save_path=None):
+def show_images_horizontally(images, main_title=None, titles=['CT', 'MR', 'CT Label'], data_path=None):
     """
     A function to display 3 images horizontally.
     :param images: A list of image arrays (3 items).
     :param titles: Titles for each image (in list format), default is None.
-    :param save_path: The path where the image will be saved.
+    :param data_path: The path where the image will be saved.
     """
     fig, axes = plt.subplots(1, 3, figsize=(13, 4))
     cmap = ['gray', 'gray', 'viridis']
@@ -50,8 +50,8 @@ def show_images_horizontally(images, main_title=None, titles=['CT', 'MR', 'CT La
             ax.set_title(titles[i])
 
     fig.tight_layout()
-    if save_path:
-        fig.savefig(os.path.join(save_path, f'{main_title}.png'))
+    if data_path:
+        fig.savefig(os.path.join(data_path, f'{main_title}.png'))
     plt.close(fig)
 
 def load_data(ct, mri, ct_label, mr_label=None):
@@ -83,13 +83,12 @@ def load_data(ct, mri, ct_label, mr_label=None):
     else:
         return np.array(ct_img), np.array(mr_img), np.array(ct_lab_img)
 
-def preprocess_slices(slice_i, ct_img, mr_img, ct_lab_img):
+def preprocess_slices(slice_i, ct_img, ct_norm, ct_lab_img, threshold_ct):
     """
     Preprocess slices for CT and MR images.
     """
-    # Add slices containing the lung
     for i in range(ct_img.shape[0]):
-        if np.max(ct_lab_img[i,:,:]) == 0 or np.sum(ct_img[i,:,:]<-0.99) > threshold_ct:
+        if np.max(ct_lab_img[i,:,:]) == 0 or np.sum(ct_norm[i,:,:]<-0.99) > threshold_ct:
             continue
         slice_i.append(i)
     
@@ -97,17 +96,17 @@ def preprocess_slices(slice_i, ct_img, mr_img, ct_lab_img):
     
     # Add surrounding slices(±10) where the lung is not present
     for i in range(slice_i[0] - 10, slice_i[0]):
-        if i < 0 or np.sum(ct_img[i,:,:]<-0.99) > threshold_ct:
+        if i < 0 or np.sum(ct_norm[i,:,:]<-0.99) > threshold_ct:
             continue
         slice_i.append(i)
     for i in range(slice_i[-1] + 1, slice_i[-1] + 11):
-        if i >= ct_img.shape[0] or np.sum(ct_img[i,:,:]<-0.99) > threshold_ct:
+        if i >= ct_img.shape[0] or np.sum(ct_norm[i,:,:]<-0.99) > threshold_ct:
             continue
         slice_i.append(i)
     
     return list(set(slice_i))
 
-def save_images(ct_img, mr_img, ct_lab_img, slice_i, save_path, folder, type):
+def save_images(ct_img, mr_img, ct_lab_img, mr_lab_img, slice_i, data_path, folder, type):
     """
     Save the processed images and slices.
     """
@@ -115,7 +114,6 @@ def save_images(ct_img, mr_img, ct_lab_img, slice_i, save_path, folder, type):
     ct_norm_3d = ScaleIntensityRange(-1024, 3071, -1, 1, clip=True)(ct_img)
     ct_lungnorm_3d = ScaleIntensityRange(-950, 350, -1, 1, clip=True)(ct_img)
     ct_lungnorm1024_3d = ScaleIntensityRange(-1024, 350, -1, 1, clip=True)(ct_img)
-    
     for i in slice_i:
         ct_2d = ct_img[i,:,:]
         mr_2d = mr_img[i,:,:]
@@ -124,6 +122,7 @@ def save_images(ct_img, mr_img, ct_lab_img, slice_i, save_path, folder, type):
         ct_norm = ct_norm_3d[i,:,:]
         ct_lungnorm = ct_lungnorm_3d[i,:,:]
         ct_lungnorm1024 = ct_lungnorm1024_3d[i,:,:]
+
         mr_slicenorm = ScaleIntensityRangePercentiles(0, 100, 0, 1, clip=True)(mr_2d)
 
         # Create edge map
@@ -134,23 +133,29 @@ def save_images(ct_img, mr_img, ct_lab_img, slice_i, save_path, folder, type):
         edge = cv2.Canny((masked * 255).astype(np.uint8), 40, 255)
 
         # Save the images
-        sitk.WriteImage(sitk.GetImageFromArray(ct_2d), f'{save_path}/CT/{folder}_CT_{type}_s{i:03}.nii.gz')
-        sitk.WriteImage(sitk.GetImageFromArray(mr_2d), f'{save_path}/MR/{folder}_MR_{type}_s{i:03}.nii.gz')
-        sitk.WriteImage(sitk.GetImageFromArray(ct_norm), f'{save_path}/CT_norm/{folder}_CT_norm_{type}_s{i:03}.nii.gz')
-        sitk.WriteImage(sitk.GetImageFromArray(ct_lungnorm), f'{save_path}/CT_norm_lung/{folder}_CT_norm_lung_{type}_s{i:03}.nii.gz')
-        sitk.WriteImage(sitk.GetImageFromArray(ct_lungnorm1024), f'{save_path}/CT_norm_lung1024/{folder}_CT_norm_lung1024_{type}_s{i:03}.nii.gz')
-        sitk.WriteImage(sitk.GetImageFromArray(mr_volnorm), f'{save_path}/MR_norm_img/{folder}_MR_norm_img_{type}_s{i:03}.nii.gz')
-        sitk.WriteImage(sitk.GetImageFromArray(mr_slicenorm), f'{save_path}/MR_norm_slice/{folder}_MR_norm_slice_{type}_s{i:03}.nii.gz')
-        Image.fromarray(edge, 'L').save(f'{save_path}/MR_CannyEdgeMap/{folder}_MR_edge_{type}_s{i:03}.png')
-        sitk.WriteImage(sitk.GetImageFromArray(ct_lab_2d), f'{save_path}/CT_label/{folder}_lung_{type}_s{i:03}.nii.gz')
+        sitk.WriteImage(sitk.GetImageFromArray(ct_2d), f'{data_path}/CT/{folder}_CT_{type}_s{i:03}.nii.gz')
+        sitk.WriteImage(sitk.GetImageFromArray(mr_2d), f'{data_path}/MR/{folder}_MR_{type}_s{i:03}.nii.gz')
+        # Save CT norm
+        sitk.WriteImage(sitk.GetImageFromArray(ct_norm), f'{data_path}/CT_norm/{folder}_CT_norm_{type}_s{i:03}.nii.gz')
+        sitk.WriteImage(sitk.GetImageFromArray(ct_lungnorm), f'{data_path}/CT_norm_lung/{folder}_CT_norm_lung_{type}_s{i:03}.nii.gz')
+        sitk.WriteImage(sitk.GetImageFromArray(ct_lungnorm1024), f'{data_path}/CT_norm_lung1024/{folder}_CT_norm_lung1024_{type}_s{i:03}.nii.gz')
+        # Save MR norm
+        sitk.WriteImage(sitk.GetImageFromArray(mr_volnorm), f'{data_path}/MR_norm_img/{folder}_MR_norm_img_{type}_s{i:03}.nii.gz')
+        sitk.WriteImage(sitk.GetImageFromArray(mr_slicenorm), f'{data_path}/MR_norm_slice/{folder}_MR_norm_slice_{type}_s{i:03}.nii.gz')
+        # Save MR edge
+        Image.fromarray(edge, 'L').save(f'{data_path}/MR_CannyEdgeMap/{folder}_MR_edge_{type}_s{i:03}.png')
+        # Save label
+        sitk.WriteImage(sitk.GetImageFromArray(ct_lab_2d), f'{data_path}/CT_label/{folder}_lung_{type}_s{i:03}.nii.gz')
+        if mr_lab_img is not None:
+            sitk.WriteImage(sitk.GetImageFromArray(mr_lab_img[i,:,:]), f'{data_path}/MR_label/{folder}_lung_mr_{type}_s{i:03}.nii.gz')
 
-def process_dataset(root_path, save_path):
+def process_dataset(root_path, data_path):
     """
     Main function to process the dataset and save the results.
     """
-    mk_dir(save_path)
+    mk_dir(data_path)
     for subfolder in ['CT', 'MR', 'CT_norm', 'CT_norm_lung', 'CT_norm_lung1024', 'MR_norm_img', 'MR_norm_slice', 'MR_CannyEdgeMap', 'CT_label', 'MR_label', 'first_last_img']:
-        mk_dir(os.path.join(save_path, subfolder))
+        mk_dir(os.path.join(data_path, subfolder))
 
     bl_counts = 0
     fu_counts = 0
@@ -171,8 +176,14 @@ def process_dataset(root_path, save_path):
                 ct_img, mr_img, ct_lab_img, mr_lab_img = load_data(ct, mri, ct_lab, mr_lab)
             else:
                 ct_img, mr_img, ct_lab_img = load_data(ct, mri, ct_lab)
+                mr_lab_img = None
 
-            slice_i = preprocess_slices([], ct_img, mr_img, ct_lab_img)
+            # Normalization
+            ct_norm = ScaleIntensityRange(-1024, 3071, -1, 1, clip=True)(ct_img)
+
+            threshold_ct = np.sum(ct_norm < -0.99) / ct_norm.shape[0] * 1
+            
+            slice_i = preprocess_slices([], ct_img, ct_norm, ct_lab_img, threshold_ct)
 
             if not slice_i:
                 print(f'[WARNING] No valid slices found in {folder} ({type})')
@@ -185,15 +196,15 @@ def process_dataset(root_path, save_path):
             counts += 1
 
             # Save images
-            save_images(ct_img, mr_img, ct_lab_img, slice_i, save_path, folder, type)
+            save_images(ct_img, mr_img, ct_lab_img, mr_lab_img, slice_i, data_path, folder, type)
 
     print(f'Baseline Total 2D slice: {bl_counts}, Followup Total 2D slice: {fu_counts}')
     print(f'Total CT-MR: {counts}')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Apply 3-channel diversity to Lung MRI and CT data for translation preprocessing.")
+    parser = argparse.ArgumentParser(description="Preprocess lung MR and CT data for segmentation.")
     parser.add_argument('--root_path', type=str, required=True, help='Root path of the dataset')
-    parser.add_argument('--save_path', type=str, required=True, help='Path to save the processed data')
+    parser.add_argument('--data_path', type=str, required=True, help='Path to save the processed data')
     
     args = parser.parse_args()
-    process_dataset(args.root_path, args.save_path)
+    process_dataset(args.root_path, args.data_path)

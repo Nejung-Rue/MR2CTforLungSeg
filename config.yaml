@@ -1,0 +1,27 @@
+# config.yaml
+
+model_config:
+  model_path: './models/cldm_v15.yaml'   # Path to the model configuration file
+  resume_path: './models/control_sd15_ini.ckpt'   # Path to the pre-trained model checkpoint
+  learning_rate: 6e-7 
+  sd_locked: true
+  only_mid_control: false
+
+trainer_config:
+  max_epochs: 500
+  batch_size: 4
+  logger_freq: 2500
+  gpus: 1   # Number of GPUs to use for training
+  precision: 32
+  check_val_every_n_epoch: 1   # Number of epochs between each validation check
+
+dataset_config:
+  data_path: '/your/data/path/'   # Path of the dataset
+  json_path: 'MR2CT4Seg.json'   # JSON file name
+  deform: 10   # Deformation intensity for elastic deformation
+  ch: 3   # Number of channels (1 for single channel, 3 for 3-channel diversity)
+
+logger_config:
+  batch_frequency: 400
+  max_images: 4
+  split_postfix: '_your_postfix'   # Postfix for the logger split directory

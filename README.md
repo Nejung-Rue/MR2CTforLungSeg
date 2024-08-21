@@ -54,11 +54,15 @@ To set up your development environment, follow the steps below:
 
 2. Apply 3-channel diversity and create the JSON files for the dataset.
     ```
-    python 3ch_diversity.py --root_path /your/dataset/path/ --save_path /your/save/path/
-    python mk_data_json.py --root_path /your/save/path/
+    python 3ch_diversity.py --root_path /your/original_data/path/ --data_path /your/data/path/
+    python mk_data_json.py --data_path /your/data/path/ --file_name your_filename.json --val_list Subject_05,Subject_07 --test_list Subject_04,Subject_06
     ```
 
-3. MRI-to-CT translation model training.
+3. Configure your training settings.
+
+    - Edit the [config.yaml](https://github.com/Nejung-Rue/MR2CTforLungSeg/blob/main/config.yaml) file to adjust any training parameters, such as model paths, learning rate, dataset paths, etc.
+
+4. MRI-to-CT translation model training.
     ```
     python MR2CT_train.py
     ```

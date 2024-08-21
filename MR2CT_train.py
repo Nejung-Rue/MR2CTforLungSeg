@@ -1,41 +1,37 @@
 from share import *
 from datetime import datetime
-
+import yaml
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from MR2CTforLungSeg.MR2CT_dataset_elasticdeform import StudyDataset
 from cldm.logger_medical import ImageLogger
 from cldm.logger_val_metric import LoggerValMetric
 from cldm.model import create_model, load_state_dict
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+# Load configuration from YAML file
+with open('config.yaml', 'r') as file:
+    config = yaml.safe_load(file)
 
 # Configs
-resume_path = './models/control_sd15_ini.ckpt'
+model_config = config['model_config']
+trainer_config = config['trainer_config']
+dataset_config = config['dataset_config']
+logger_config = config['logger_config']
 
-max_epochs = 500
-batch_size = 4
-logger_freq = 2500
-logger_freq_epoch = 50
-learning_rate = 6e-7 # Adjust experimentally to find the best value for your dataset
-sd_locked = True
-only_mid_control = False
+# Model setup
+model = create_model(model_config['model_path']).cpu()
+model.load_state_dict(load_state_dict(model_config['resume_path'], location='cpu'))
+model.learning_rate = model_config['learning_rate']
+model.sd_locked = model_config['sd_locked']
+model.only_mid_control = model_config['only_mid_control']
 
-
-# First use cpu to load models. Pytorch Lightning will automatically move it to GPUs.
-model = create_model('./models/cldm_v15.yaml').cpu()
-model.load_state_dict(load_state_dict(resume_path, location='cpu'))
-model.learning_rate = learning_rate
-model.sd_locked = sd_locked
-model.only_mid_control = only_mid_control
-
-
-# Checkpoint
+# Checkpoints setup
 checkpoint = ModelCheckpoint(
     save_top_k=2,
-    # every_n_train_steps=logger_freq,
     every_n_epochs=1,
     save_on_train_epoch_end=True,
-    save_last=False,
+    save_last=True,
     filename='trloss-{epoch}-{step}',
     monitor="train/loss",
 )
@@ -44,7 +40,7 @@ checkpoint.CHECKPOINT_NAME_LAST = "{epoch}-{step}-last"
 checkpoint_val = ModelCheckpoint(
     save_top_k=2,
     every_n_epochs=1,
-    save_on_train_epoch_end=False, # val이면 false, train이면 true
+    save_on_train_epoch_end=False,
     save_last=False,
     filename='val-{epoch}-{step}',
     monitor="val/metric",
@@ -52,36 +48,25 @@ checkpoint_val = ModelCheckpoint(
 )
 checkpoint_val.CHECKPOINT_NAME_LAST = "{epoch}-{step}-last"
 
-# checkpoint_epochEnd = ModelCheckpoint(
-#     save_top_k=-1,
-#     every_n_epochs=logger_freq_epoch,
-#     save_on_train_epoch_end=True,
-#     save_last=False,
-#     filename='end-{epoch}-{step}',
-#     monitor=None,
-# )
-# checkpoint_epochEnd.CHECKPOINT_NAME_LAST = "{epoch}-{step}-last"
+# Dataset and DataLoader setup
+train_dataset = StudyDataset(type='training', json_path=dataset_config['json_path'], deform=dataset_config['deform'], ch=dataset_config['ch'])
+val_dataset = StudyDataset(type='validation', json_path=dataset_config['json_path'], ch=dataset_config['ch'])
+train_dataloader = DataLoader(train_dataset, num_workers=30, batch_size=trainer_config['batch_size'], shuffle=True)
+val_dataloader = DataLoader(val_dataset, num_workers=30, batch_size=trainer_config['batch_size']*2, shuffle=False)
 
-
-# Misc
-train_dataset = StudyDataset(type='training', json_path='your_filename.json', deform=10, ch=3)
-# deform: 
-# ch: 3 means use channel diverisy, 1 means use copy channel 1
-val_dataset = StudyDataset(type='validation', json_path='your_filename.json', ch=3)
-train_dataloader = DataLoader(train_dataset, num_workers=40, batch_size=batch_size, shuffle=True)
-val_dataloader = DataLoader(val_dataset, num_workers=40, batch_size=batch_size*2, shuffle=False)
-
-# Folder location: Specifies the directory where the logger will save files during model training.
-split = datetime.today().strftime("%y%m%d")+"_your_postfix"
-
-logger = ImageLogger(batch_frequency=logger_freq, max_images=4, split=split)
+# Logger setup
+split = datetime.today().strftime("%y%m%d") + logger_config['split_postfix']
+logger = ImageLogger(batch_frequency=logger_config['batch_frequency'], max_images=logger_config['max_images'], split=split)
 logger_val_metric = LoggerValMetric(batch_frequency=1, split=split)
 
-trainer = pl.Trainer(gpus=1, precision=32, callbacks=[logger, logger_val_metric, checkpoint, checkpoint_val], max_epochs=max_epochs,
-                     check_val_every_n_epoch=4)
-# precision: Double precision (64), full precision (32), half precision (16) or bfloat16 precision (bf16).
-# Can be used on CPU, GPU or TPUs.
-
+# Trainer setup
+trainer = pl.Trainer(
+    gpus=trainer_config['gpus'],
+    precision=trainer_config['precision'],
+    callbacks=[logger, logger_val_metric, checkpoint, checkpoint_val],
+    max_epochs=trainer_config['max_epochs'],
+    check_val_every_n_epoch=trainer_config['check_val_every_n_epoch']
+)
 
 # Train!
 trainer.fit(model, train_dataloader, val_dataloader)

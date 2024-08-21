@@ -6,7 +6,7 @@ import json
 from tqdm import tqdm
 import argparse
 
-def load_file_lists(root_path):
+def load_file_lists(data_path):
     file_patterns = {
         'ct': 'CT/*.nii.gz',
         'ct_norm': 'CT_norm/*.nii.gz',
@@ -20,7 +20,7 @@ def load_file_lists(root_path):
         'mr_label': 'MR_label/*.nii.gz'
     }
 
-    return {key: sorted(glob.glob(os.path.join(root_path, pattern))) for key, pattern in file_patterns.items()}
+    return {key: sorted(glob.glob(os.path.join(data_path, pattern))) for key, pattern in file_patterns.items()}
 
 def create_data_dict(i, file_lists, prompt, mr_label_list_for_check):
     ct_path = file_lists['ct'][i]
@@ -55,16 +55,22 @@ def create_data_dict(i, file_lists, prompt, mr_label_list_for_check):
 
     return temp_dict
 
-def main(root_path):
-    val_list = ['Subject_05','Subject_07','Subject_10','Subject_20','Subject_29','Subject_42','Subject_45']
-    test_list = ['Subject_04','Subject_06','Subject_08','Subject_12','Subject_28','Subject_41','Subject_44']
+def parse_subject_list(subjects_str):
+    """
+    Convert a comma-separated string into a list of subjects.
+    """
+    return subjects_str.split(',') if subjects_str else []
+
+def main(data_path, file_name, val_list_str, test_list_str):
+    val_list = parse_subject_list(val_list_str)
+    test_list = parse_subject_list(test_list_str)
 
     train_dict = []
     val_dict = []
     test_dict = []
 
     # Load file lists
-    file_lists = load_file_lists(root_path)
+    file_lists = load_file_lists(data_path)
 
     # Extract just the filenames from the MR labels for checking
     mr_label_list_for_check = [os.path.basename(l).replace('lung_mr', '') for l in file_lists['mr_label']]
@@ -95,12 +101,15 @@ def main(root_path):
         'test':test_dict
     }
 
-    with open(os.path.join(root_path, "MR2CT4Seg.json"), "w") as f:
+    with open(os.path.join(data_path, file_name), "w") as f:
         json.dump(final_dict, f, indent=4)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Generate JSON for MR2CT for Lung segmetnation")
-    parser.add_argument('--root_path', type=str, required=True, help='Root path of the dataset')
+    parser = argparse.ArgumentParser(description="Generate JSON for MR2CT for Lung segmentation")
+    parser.add_argument('--data_path', type=str, required=True, help='Root path of the dataset')
+    parser.add_argument('--file_name', type=str, required=True, help='Name of the JSON file')
+    parser.add_argument('--val_list', type=str, default='', help='Comma-separated list of subjects for validation')
+    parser.add_argument('--test_list', type=str, default='', help='Comma-separated list of subjects for testing')
     
     args = parser.parse_args()
-    main(args.root_path)
+    main(args.data_path, args.file_name, args.val_list, args.test_list)
