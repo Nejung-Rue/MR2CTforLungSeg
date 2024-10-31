@@ -91,6 +91,7 @@ To set up your development environment, follow the steps below:
   <img src="images/res2.png" alt="result" width=65%>
 </p>
 *The MRI-to-CT translation and segmentation results of different models. (a) and (b) show results for different subjects*
+
 ## Acknowledgments
 
 This project references the following work:
