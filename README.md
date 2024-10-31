@@ -5,6 +5,7 @@
 ## Overview
 This repository contains the code for "Misalignment-aware MRI-to-CT synthesis for Lung segmentation on MRI." This study addresses the challenges of lung segmentation on MRI images by synthesizing CT images that are aware of misalignment issues commonly encountered between MRI and CT modalities.
 <br>
+
 ![result](images/method.png)
 ![result](images/3ch_diversity.png)
 <!-- ![result](images/main_preprocessing.png) -->
