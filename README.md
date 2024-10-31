@@ -83,13 +83,15 @@ To set up your development environment, follow the steps below:
 ## Results
 <p align="center">
   <img src="images/intro_res.png" alt="result" width=50%>
+  <img src="images/res1.png" alt="result" width=100%>
+  <img src="images/res2.png" alt="result" width=65%>
 </p>
 
-![result1](images/res1.png)
+<!-- ![result1](images/res1.png)
 
 <p align="center">
   <img src="images/res2.png" alt="result" width=65%>
-</p>
+</p> -->
 *The MRI-to-CT translation and segmentation results of different models. (a) and (b) show results for different subjects*
 
 ## Acknowledgments
