@@ -5,8 +5,12 @@
 ## Overview
 This repository contains the code for "Misalignment-aware MRI-to-CT synthesis for Lung segmentation on MRI." This study addresses the challenges of lung segmentation on MRI images by synthesizing CT images that are aware of misalignment issues commonly encountered between MRI and CT modalities.
 <br>
-![result](images/overview.png)
+![result](images/method.png)
 ![result](images/3ch_diversity.png)
+<!-- ![result](images/main_preprocessing.png) -->
+<p align="center">
+  <img src="images/main_preprocessing.png" alt="result" width=60%>
+</p>
 
 ## Dataset
 This project utilizes the in-house MR-CT paired datasets.
@@ -67,13 +71,25 @@ To set up your development environment, follow the steps below:
     python MR2CT_train.py
     ```
 
+    Our setting:
+    - We fixed the prompt to "Professional high-quality translation from lung MRI-to-CT. Magnetic Resonance Imaging to Computated Tomography, Medical Imaging, extremely high detail, clean Background."
+    - The batch size set to 4.
+    - All diffusion models were trained with 1000 diffusion steps.
+
 <!-- 4. Apply a pre-trained nnU-Net or similar segmentation model, initially trained on CT-CT label pairs, to the synthesized CT (SynCT) generated from MR2CT.
     - **Note:** The process of applying a pre-trained nnU-Net or similar segmentation model to the synthesized CT (SynCT) is not included in this repository. This step assumes you have a pre-trained model and will need to apply it separately using your own resources. -->
 
 
 ## Results
-![result1](images/result1.png)
-![result2](images/result2.png)
+<p align="center">
+  <img src="images/intro_res.png" alt="result" width=50%>
+</p>
+
+![result1](images/res1.png)
+
+<p align="center">
+  <img src="images/res2.png" alt="result" width=65%>
+</p>
 *The MRI-to-CT translation and segmentation results of different models. (a) and (b) show results for different subjects*
 ## Acknowledgments
 
