@@ -17,6 +17,7 @@ class StudyDataset(Dataset):
     def __init__(self, type='training', json_path='MR2CT4Seg.json', subtype=None, deform=10, ch=3):
         self.data = []
         self.deform = deform  # M
+        self.type = type
         self.ch = ch  # 1 means copy 1 channel, 3 means use 3-channel diversity
         with open(os.path.join(data_path, json_path), 'rt') as f:
             self.data = json.load(f)[type]
@@ -54,7 +55,7 @@ class StudyDataset(Dataset):
         target_norm_le1 = sitk.GetArrayFromImage(target_norm_le1).astype(np.float32)
         target_norm_le2 = sitk.GetArrayFromImage(target_norm_le2).astype(np.float32)
 
-        if type == 'training' and self.deform != 0:
+        if self.type == 'training' and self.deform != 0:
             # Deformation only during training step
 
             # Elastic deformation
